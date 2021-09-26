@@ -1,0 +1,10 @@
+name = "avltrees"
+description = "Threaded AVL trees library for Ada"
+version = "0.1.0"
+
+authors = ["Lev Kujawski"]
+maintainers = ["Lev Kujawski <int21h@mailbox.org>"]
+maintainers-logins = ["lkujaw"]
+licenses = "LGPL-3.0-or-later"
+website = "https://github.com/lkujaw/avltrees"
+tags = ["ada1987", "data-structures"]
