@@ -19,16 +19,16 @@
 --                                                                   --
 --  SPDX-License-Identifier: LGPL-3.0-or-later                       --
 --                                                                   --
---  File:          avltrees.ads (Ada Package Specification)          --
---  Language:      Ada (1987) [1]                                    --
+--  File:          avindtre.ads (Ada Package Specification)          --
+--  Language:      Ada (1995) [1]                                    --
 --  Author:        Lev Kujawski                                      --
 --  Description:                                                     --
 --    Self-balancing binary trees, based upon the algorithms         --
 --    developed by G. M. Adelson-Velsky and E. M. Landis [2].        --
 --                                                                   --
 --  References:                                                      --
---  [1] Programming languages - Ada, ISO/IEC 8652:1987,              --
---      15 Jun. 1987.                                                --
+--  [1] Information technology - Programming languages - Ada,        --
+--      ISO/IEC 8652:1995(E), 15 Feb. 1995.                          --
 --  [2] G. M. Adelson-Velsky and E. M. Landis                        --
 --      Doklady Akademii Nauk SSSR 146 (1962), 263-266               --
 --      English translation in                                       --
@@ -39,8 +39,8 @@
 with AVL_Tree_Heights;
 
 generic
-   type Key_T is private;
-   type Element_T is private;
+   type Key_T (<>) is private;
+   type Element_T (<>) is private;
 
    with function Is_Less_Than
      (X : in Key_T;
@@ -49,7 +49,7 @@ generic
    --  The use of Is_Less_Than mitigates a GNAT hiding warning that
    --  would otherwise occur with "<".
 
-package AVL_Trees is
+package AVL_Indefinite_Trees is
    pragma Preelaborate;
 
    Key_Not_Found  : exception;
@@ -299,10 +299,8 @@ package AVL_Trees is
       Of_The_Key       : in     Key_T;
       With_The_Element : in out Element_T);
 
-private  --  AVL_Trees  -----------------------------------------------
+private  --  AVL_Indefinite_Trees  ------------------------------------
 
-   --  The tree is populated with nodes. This is only type within the
-   --  package to be allocated dynamically.
    type AVL_Node_T;
    type AVL_Node_A is access AVL_Node_T;
    --  Deallocation of nodes is always performed manually, so the type
@@ -319,4 +317,4 @@ private  --  AVL_Trees  -----------------------------------------------
          Height : AVL_Tree_Heights.T := 0;
       end record;
 
-end AVL_Trees;
+end AVL_Indefinite_Trees;

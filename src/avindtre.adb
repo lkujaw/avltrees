@@ -19,16 +19,16 @@
 --                                                                   --
 --  SPDX-License-Identifier: LGPL-3.0-or-later                       --
 --                                                                   --
---  File:          avltrees.adb (Ada Package Body)                   --
---  Language:      Ada (1987) [1]                                    --
+--  File:          avindtre.adb (Ada Package Body)                   --
+--  Language:      Ada (1995) [1]                                    --
 --  Author:        Lev Kujawski                                      --
 --  Description:                                                     --
 --    Self-balancing binary trees, based upon the algorithms         --
 --    developed by G. M. Adelson-Velsky and E. M. Landis [2].        --
 --                                                                   --
 --  References:                                                      --
---  [1] Programming languages - Ada, ISO/IEC 8652:1987,              --
---      15 Jun. 1987.                                                --
+--  [1] Information technology - Programming languages - Ada,        --
+--      ISO/IEC 8652:1995(E), 15 Feb. 1995.                          --
 --  [2] G. M. Adelson-Velsky and E. M. Landis                        --
 --      Doklady Akademii Nauk SSSR 146 (1962), 263-266               --
 --      English translation in                                       --
@@ -40,7 +40,7 @@ with System;
 with Unchecked_Conversion;
 with Unchecked_Deallocation;
 
-package body AVL_Trees is
+package body AVL_Indefinite_Trees is
 
    Alignment_Error : exception;
 
@@ -70,12 +70,18 @@ package body AVL_Trees is
 
    type Direction_T is (Left, Right);
 
+   type Key_A is access Key_T;
+   pragma Controlled (Key_A);
+
+   type Element_A is access Element_T;
+   pragma Controlled (Element_A);
+
    type AVL_Node_T is
       record
-         Key       : Key_T;
+         Key       : Key_A;
          Left_Link : System.Address;
          RL        : AVL_Node_A;  --  Right Link
-         Element   : Element_T;
+         Element   : Element_A;
          Balance   : Balance_T;
       end record;
    pragma Pack (AVL_Node_T);
@@ -289,6 +295,10 @@ package body AVL_Trees is
       To_Type   : in Link_T);
    pragma Inline (Set_Link_Type);
 
+   procedure Unchecked_Deallocate_Element is
+         new Unchecked_Deallocation (Object => Element_T,
+                                     Name   => Element_A);
+
    procedure Allocate
      (Key        : in     Key_T;
       Element    : in     Element_T;
@@ -303,10 +313,10 @@ package body AVL_Trees is
       New_Node_Booleans : Address_Booleans_T;
    begin
       New_Node_Pointer := new AVL_Node_T'
-        (Key       => Key,
+        (Key       => new Key_T'(Key),
          Left_Link => Access_To_Address (Left_Link),
          RL        => Right_Link,
-         Element   => Element,
+         Element   => new Element_T'(Element),
          Balance   => Balance);
 
       New_Node_Booleans := Access_To_Booleans (New_Node_Pointer);
@@ -556,10 +566,17 @@ package body AVL_Trees is
    procedure Deallocate
      (The_Node : in out AVL_Node_A)
    is
+      procedure Unchecked_Deallocate_Key is new Unchecked_Deallocation
+        (Object => Key_T, Name => Key_A);
+
       procedure Unchecked_Deallocate_Node is new Unchecked_Deallocation
         (Object => AVL_Node_T, Name => AVL_Node_A);
    begin
       pragma Assert (The_Node /= null);
+      pragma Assert (The_Node.all.Element /= null);
+      pragma Assert (The_Node.all.Key /= null);
+      Unchecked_Deallocate_Element (X => The_Node.all.Element);
+      Unchecked_Deallocate_Key (X => The_Node.all.Key);
       Unchecked_Deallocate_Node (X => The_Node);
    end Deallocate;
 
@@ -582,7 +599,8 @@ package body AVL_Trees is
    is
    begin
       pragma Assert (The_Node /= null);
-      return The_Node.all.Element;
+      pragma Assert (The_Node.all.Element /= null);
+      return The_Node.all.Element.all;
    end Element_Of;
 
    function Greatest_Key
@@ -1569,7 +1587,8 @@ package body AVL_Trees is
    is
    begin
       pragma Assert (The_Node /= null);
-      return The_Node.all.Key;
+      pragma Assert (The_Node.all.Key /= null);
+      return The_Node.all.Key.all;
    end Key_Of;
 
    function Least_Key
@@ -2485,7 +2504,9 @@ package body AVL_Trees is
    is
    begin
       pragma Assert (Within_The_Node /= null);
-      Within_The_Node.all.Element := With_The_Element;
+      pragma Assert (Within_The_Node.all.Element /= null);
+      Unchecked_Deallocate_Element (X => Within_The_Node.all.Element);
+      Within_The_Node.all.Element := new Element_T'(With_The_Element);
    end Replace_Element;
 
    procedure Replace_Greatest
@@ -3022,4 +3043,4 @@ package body AVL_Trees is
       end loop;
    end Swap_Successor;
 
-end AVL_Trees;
+end AVL_Indefinite_Trees;

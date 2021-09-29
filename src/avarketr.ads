@@ -1,39 +1,39 @@
 -----------------------------------------------------------------------
---  Copyright 2021 Lev Kujawski
---
---  This file is part of AVLTREES.
---
---  AVLTREES is free software: you can redistribute it and/or modify
---  it under the terms of the GNU Lesser General Public License as
---  published by the Free Software Foundation, either version 3 of
---  the License, or (at your option) any later version.
---
---  AVLTREES is distributed in the hope that it will be useful,
---  but WITHOUT ANY WARRANTY; without even the implied warranty of
---  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
---  GNU Lesser General Public License for more details.
---
---  You should have received a copy of the
---  GNU Lesser General Public License along with AVLTREES.
---  If not, see <https://www.gnu.org/licenses/>.
---
---  SPDX-License-Identifier: LGPL-3.0-or-later
---
---  File:          avarketr.ads (Ada Package Specification)
---  Language:      Ada (1987) [1]
---  Author:        Lev Kujawski
---  Description:
---    Self-balancing binary trees, based upon the algorithms developed
---    by G. M. Adelson-Velsky and E. M. Landis [2].
---
---  References:
---  [1] Programming languages - Ada, ISO/IEC 8652:1987, 15 Jun. 1987.
---  [2] G. M. Adelson-Velsky and E. M. Landis
---      Doklady Akademii Nauk SSSR 146 (1962), 263-266
---      English translation in
---      "An algorithm for the organization of information",
---      Soviet Math. Doklady 3 (1962) 1259-1263.
---
+--  Copyright 2021 Lev Kujawski                                      --
+--                                                                   --
+--                  This file is part of AVLTREES.                   --
+--                                                                   --
+--  AVLTREES is free software: you can redistribute it and/or modify --
+--  it under the terms of the GNU Lesser General Public License as   --
+--  published by the Free Software Foundation, either version 3 of   --
+--       the License, or (at your option) any later version.         --
+--                                                                   --
+--   AVLTREES is distributed in the hope that it will be useful,     --
+--  but WITHOUT ANY WARRANTY; without even the implied warranty of   --
+--  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the    --
+--       GNU Lesser General Public License for more details.         --
+--                                                                   --
+--              You should have received a copy of the               --
+--      GNU Lesser General Public License along with AVLTREES.       --
+--           If not, see <https://www.gnu.org/licenses/>.            --
+--                                                                   --
+--  SPDX-License-Identifier: LGPL-3.0-or-later                       --
+--                                                                   --
+--  File:          avarketr.ads (Ada Package Specification)          --
+--  Language:      Ada (1987) [1]                                    --
+--  Author:        Lev Kujawski                                      --
+--  Description:                                                     --
+--    Self-balancing binary trees, based upon the algorithms         --
+--    developed by G. M. Adelson-Velsky and E. M. Landis [2].        --
+--                                                                   --
+--  References:                                                      --
+--  [1] Programming languages - Ada, ISO/IEC 8652:1987,              --
+--      15 Jun. 1987.                                                --
+--  [2] G. M. Adelson-Velsky and E. M. Landis                        --
+--      Doklady Akademii Nauk SSSR 146 (1962), 263-266               --
+--      English translation in                                       --
+--      "An algorithm for the organization of information",          --
+--      Soviet Math. Doklady 3 (1962) 1259-1263.                     --
 -----------------------------------------------------------------------
 
 with AVL_Tree_Heights;
@@ -54,7 +54,8 @@ generic
 package AVL_Array_Key_Trees is
    pragma Preelaborate;
 
-   Key_Not_Found : exception;
+   Key_Not_Found  : exception;
+   Pool_Exhausted : exception;
 
    type T is limited private;
 
@@ -74,16 +75,18 @@ package AVL_Array_Key_Trees is
    procedure Clear
      (The_Tree : in out T);
 
-   --  Returns the least key in the tree.
+   --  Returns the least key within the tree.
    --
-   --  If the tree is empty, a null string is returned.
+   --  If the tree is empty, the Key_Not_Found exception will be
+   --  raised.
    function Least_Key
      (Within_The_Tree : in T)
       return Key_T;
 
    --  Returns the greatest key within the tree.
    --
-   --  If the tree is empty, a null string is returned.
+   --  If the tree is empty, the Key_Not_Found exception will be
+   --  raised.
    function Greatest_Key
      (Within_The_Tree : in T)
       return Key_T;
@@ -94,15 +97,16 @@ package AVL_Array_Key_Trees is
    function Height
      (Of_The_Tree : in T)
       return AVL_Tree_Heights.T;
+   pragma Inline (Height);
 
    --  Inserts a new key/element pair into the tree.
    --
-   --    If the same element is inserted twice, the tree will be not
-   --    be modified.  To replace the element associated with a key,
-   --    use Replace or Insert_or_Replace.
+   --  If the same element is inserted twice, the tree will be not
+   --  be modified.  To replace the element associated with a key, use
+   --  Replace or Insert_Or_Replace.
    --
-   --    Exceptions raised when allocating memory for an additional
-   --    node fails will propagate.
+   --  Raises the Pool_Exhausted exception when there is insufficient
+   --  memory to allocate a new node within the tree.
    procedure Insert
      (Within_The_Tree : in out T;
       The_Key         : in     Key_T;
@@ -112,9 +116,9 @@ package AVL_Array_Key_Trees is
    --  element associated with the given key if it is already present
    --  in the tree.
    --
-   --    Exceptions raised when allocating memory for an additional
-   --    node fails will propagate.
-   procedure Insert_or_Replace
+   --  Raises the Pool_Exhausted exception when there is insufficient
+   --  memory to allocate a new node within the tree.
+   procedure Insert_Or_Replace
      (Within_The_Tree : in out T;
       The_Key         : in     Key_T;
       With_Element    : in     Element_T);
@@ -133,14 +137,17 @@ package AVL_Array_Key_Trees is
 
    --  Returns the length of the greatest key within the tree.
    --
-   --  If the tree is empty, Key_Not_Found is raised.
+   --  If the tree is empty, the Key_Not_Found exception is raised.
+   --  If the tree is empty, the Key_Not_Found exception will be
+   --  raised.
    function Greatest_Key_Length
      (Within_The_Tree : in T)
       return Key_Index_T;
 
    --  Returns the length of the least key within the tree.
    --
-   --  If the tree is empty, Key_Not_Found is raised.
+   --  If the tree is empty, the Key_Not_Found exception will be
+   --  raised.
    function Least_Key_Length
      (Within_The_Tree : in T)
       return Key_Index_T;
@@ -149,7 +156,8 @@ package AVL_Array_Key_Trees is
    --  this function is computationally expensive, as it involves
    --  traversing the entire tree.
    --
-   --  If the tree is empty, the exception Key_Not_Found is raised.
+   --  If the tree is empty, the Key_Not_Found exception will be
+   --  raised.
    function Longest_Key_Length
      (Within_The_Tree : in T)
       return Key_Index_T;
@@ -158,12 +166,13 @@ package AVL_Array_Key_Trees is
    function Nodes
      (Within_The_Tree : in T)
       return Natural;
+   pragma Inline (Nodes);
 
    --  Finds and returns the key that is the predecessor to that
    --  given.
    --
    --  If the predecessor key is not present within the tree, the
-   --  exception Key_Not_Found is raised.
+   --  Key_Not_Found exception will be raised.
    function Predecessor_Key
      (Within_The_Tree : in T;
       Of_The_Key      : in Key_T)
@@ -172,7 +181,7 @@ package AVL_Array_Key_Trees is
    --  Finds and returns the key that is the successor to that given.
    --
    --  If the successor key is not present within the tree, the
-   --  exception Key_Not_Found is raised.
+   --  Key_Not_Found exception will be raised.
    function Successor_Key
      (Within_The_Tree : in T;
       Of_The_Key      : in Key_T)
@@ -180,8 +189,8 @@ package AVL_Array_Key_Trees is
 
    --  Replaces the element associated with the given key.
    --
-   --  If the key is not present within the tree, the exception
-   --  Key_Not_Found is raised.
+   --  If the key is not present within the tree, the Key_Not_Found
+   --  exception will be raised.
    procedure Replace
      (Within_The_Tree : in out T;
       The_Key         : in     Key_T;
@@ -190,7 +199,7 @@ package AVL_Array_Key_Trees is
    --  Replace the element associated with the greatest key in the
    --  tree.
    --
-   --  If the tree is empty, the exception Key_Not_Found will be
+   --  If the tree is empty, the Key_Not_Found exception will be
    --  raised.
    procedure Replace_Greatest
      (Within_The_Tree : in out T;
@@ -198,7 +207,7 @@ package AVL_Array_Key_Trees is
 
    --  Replace the element associated with the least key in the tree.
    --
-   --  If the tree is empty, the exception Key_Not_Found will be
+   --  If the tree is empty, the Key_Not_Found exception will be
    --  raised.
    procedure Replace_Least
      (Within_The_Tree : in out T;
@@ -208,7 +217,7 @@ package AVL_Array_Key_Trees is
    --  given key.
    --
    --  If the predecessor of the key is not present within the tree,
-   --  the exception Key_Not_Found will be raised.
+   --  the Key_Not_Found exception will be raised.
    procedure Replace_Predecessor
      (Within_The_Tree : in out T;
       Of_The_Key      : in     Key_T;
@@ -218,7 +227,7 @@ package AVL_Array_Key_Trees is
    --  key.
    --
    --  If the predecessor of the key is not present within the tree,
-   --  the exception Key_Not_Found will be raised.
+   --  the Key_Not_Found exception will be raised.
    procedure Replace_Successor
      (Within_The_Tree : in out T;
       Of_The_Key      : in     Key_T;
@@ -226,8 +235,8 @@ package AVL_Array_Key_Trees is
 
    --  Retrieves the element associated with the given key.
    --
-   --  If the key is not present within the tree, the exception
-   --  Key_Not_Found will be raised.
+   --  If the key is not present within the tree, the Key_Not_Found
+   --  exception will be raised.
    procedure Retrieve
      (From_The_Tree    : in     T;
       The_Key          : in     Key_T;
@@ -236,7 +245,7 @@ package AVL_Array_Key_Trees is
    --  Retrieves the element associated with the greatest key in the
    --  tree.
    --
-   --  If the tree is empty, the exception Key_Not_Found will be
+   --  If the tree is empty, the Key_Not_Found exception will be
    --  raised.
    procedure Retrieve_Greatest
      (From_The_Tree    : in     T;
@@ -245,7 +254,7 @@ package AVL_Array_Key_Trees is
    --  Retrieves the element associated with the least key in the
    --  tree.
    --
-   --  If the tree is empty, the exception Key_Not_Found will be
+   --  If the tree is empty, the Key_Not_Found exception will be
    --  raised.
    procedure Retrieve_Least
      (From_The_Tree    : in     T;
@@ -255,7 +264,7 @@ package AVL_Array_Key_Trees is
    --  given key.
    --
    --  If the predecessor of the key is not present within the tree,
-   --  the exception Key_Not_Found will be raised.
+   --  the Key_Not_Found exception will be raised.
    procedure Retrieve_Predecessor
      (Within_The_Tree  : in     T;
       Of_The_Key       : in     Key_T;
@@ -265,7 +274,7 @@ package AVL_Array_Key_Trees is
    --  given key.
    --
    --  If the successor of the key is not present within the tree, the
-   --  exception Key_Not_Found will be raised.
+   --  Key_Not_Found exception will be raised.
    procedure Retrieve_Successor
      (Within_The_Tree  : in     T;
       Of_The_Key       : in     Key_T;
@@ -274,8 +283,8 @@ package AVL_Array_Key_Trees is
    --  Swaps the element associated with the given key with the
    --  given element.
    --
-   --  If the key is not present within the tree, the exception
-   --  Key_Not_Found will be raised.
+   --  If the key is not present within the tree, the Key_Not_Found
+   --  exception will be raised.
    procedure Swap
      (Within_The_Tree  : in out T;
       The_Key          : in     Key_T;
@@ -284,7 +293,7 @@ package AVL_Array_Key_Trees is
    --  Swaps the element associated with the greatest key within the
    --  tree with the given element.
    --
-   --  If the tree is empty, the exception Key_Not_Found will be
+   --  If the tree is empty, the Key_Not_Found exception will be
    --  raised.
    procedure Swap_Greatest
      (Within_The_Tree  : in out T;
@@ -293,7 +302,7 @@ package AVL_Array_Key_Trees is
    --  Swaps the element associated with the least key within the tree
    --  with the given element.
    --
-   --  If the tree is empty, the exception Key_Not_Found will be
+   --  If the tree is empty, the Key_Not_Found exception will be
    --  raised.
    procedure Swap_Least
      (Within_The_Tree  : in out T;
@@ -303,7 +312,7 @@ package AVL_Array_Key_Trees is
    --  key with the given element.
    --
    --  If the predecessor of the given key is not found within the
-   --  tree, the exception Key_Not_Found will be raised.
+   --  tree, the Key_Not_Found exception will be raised.
    procedure Swap_Predecessor
      (Within_The_Tree  : in out T;
       Of_The_Key       : in     Key_T;
@@ -313,7 +322,7 @@ package AVL_Array_Key_Trees is
    --  key with the given element.
    --
    --  If the successor of the given key is not found within the
-   --  tree, the exception Key_Not_Found will be raised.
+   --  tree, the Key_Not_Found exception will be raised.
    procedure Swap_Successor
      (Within_The_Tree  : in out T;
       Of_The_Key       : in     Key_T;
@@ -338,6 +347,5 @@ private  --  AVL_Array_Key_Trees  -------------------------------------
          Nodes  : Natural            := 0;
          Height : AVL_Tree_Heights.T := 0;
       end record;
-   pragma Pack (T);
 
 end AVL_Array_Key_Trees;
