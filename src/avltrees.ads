@@ -67,6 +67,11 @@ package AVL_Trees is
      (From_The_Tree : in out T;
       The_Key       : in     Key_T);
 
+   --  Ada (2007) Containers library compatibility name.
+   procedure Delete
+     (From_The_Tree : in out T;
+      The_Key       : in     Key_T) renames Remove;
+
    --  Irreversibly purges the given tree of all its nodes.
    --
    --  If the tree is already empty, the tree will not be modified.
@@ -133,11 +138,22 @@ package AVL_Trees is
       The_Key         : in Key_T)
       return Boolean;
 
+   --  Ada (2007) Containers library compatibility name.
+   function Contains
+     (Within_The_Tree : in T;
+      The_Key         : in Key_T)
+      return Boolean renames Is_Present;
+
    --  Returns the total number of nodes present within the tree.
    function Nodes
      (Within_The_Tree : in T)
       return Natural;
    pragma Inline (Nodes);
+
+   --  Ada (2007) Containers library compatibility name.
+   function Length
+     (Of_The_Tree : in T)
+      return Natural renames Nodes;
 
    --  Finds and returns the key that is the predecessor to that
    --  given.
@@ -298,6 +314,12 @@ package AVL_Trees is
      (Within_The_Tree  : in out T;
       Of_The_Key       : in     Key_T;
       With_The_Element : in out Element_T);
+
+   generic
+      with procedure Process (The_Key     : in     Key_T;
+                              The_Element : in     Element_T;
+                              Continue    :    out Boolean);
+   procedure Traverse_In_Order (The_Tree : in T);
 
 private  --  AVL_Trees  -----------------------------------------------
 

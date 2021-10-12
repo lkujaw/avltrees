@@ -41,12 +41,14 @@ project AVLTREES is
    for Create_Missing_Dirs use "True";
 
    package Naming is
-      for Casing                       use "lowercase";
-      for Spec ("AVL_Array_Key_Trees") use "avarketr.ads";
-      for Body ("AVL_Array_Key_Trees") use "avarketr.adb";
-      for Spec ("AVL_Trees")           use "avltrees.ads";
-      for Body ("AVL_Trees")           use "avltrees.adb";
-      for Spec ("AVL_Tree_Heights")    use "avtrehei.ads";
+      for Casing                        use "lowercase";
+      for Spec ("AVL_Array_Key_Trees")  use "avarketr.ads";
+      for Body ("AVL_Array_Key_Trees")  use "avarketr.adb";
+      for Spec ("AVL_Indefinite_Trees") use "avindtre.ads";
+      for Body ("AVL_Indefinite_Trees") use "avindtre.adb";
+      for Spec ("AVL_Tree_Heights")     use "avtrehei.ads";
+      for Spec ("AVL_Trees")            use "avltrees.ads";
+      for Body ("AVL_Trees")            use "avltrees.adb";
    end Naming;
 
    type Enabled_Kind is ("enabled", "disabled");

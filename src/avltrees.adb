@@ -160,17 +160,26 @@ package body AVL_Trees is
       return Key_T;
    pragma Inline (Key_Of);
 
+   function Least_Node
+     (Within_The_Tree : in T)
+      return AVL_Node_A;
+
    function Link
-     (Node      : in AVL_Node_A;
+     (Of_Node   : in AVL_Node_A;
       Direction : in Direction_T)
       return AVL_Node_A;
    pragma Inline (Link);
 
    function Link_Type
-     (Node      : in AVL_Node_A;
+     (Of_Node   : in AVL_Node_A;
       Direction : in Direction_T)
       return Link_T;
    pragma Inline (Link_Type);
+
+   function Node
+     (Within_The_Tree : in T;
+      That_Has_Key    : in Key_T)
+      return AVL_Node_A;
 
    function Opposite
      (Direction : in Direction_T)
@@ -181,7 +190,7 @@ package body AVL_Trees is
    --
    --  If the parent is the root of the tree, null is returned.
    function Parent
-     (Node : in AVL_Node_A)
+     (Of_Node : in AVL_Node_A)
       return AVL_Node_A;
 
    --  NNode:
@@ -288,6 +297,10 @@ package body AVL_Trees is
       Direction : in Direction_T;
       To_Type   : in Link_T);
    pragma Inline (Set_Link_Type);
+
+   function Successor_Node
+     (Of_Node : in AVL_Node_A)
+      return AVL_Node_A;
 
    procedure Allocate
      (Key        : in     Key_T;
@@ -406,7 +419,7 @@ package body AVL_Trees is
    begin  --  Balance_Post_Deletion
       loop
          TNode             := PNode;
-         PNode             := Parent (Node => TNode);
+         PNode             := Parent (Of_Node => TNode);
          Current_Direction := Parent_Direction;
 
          if PNode /= null
@@ -487,64 +500,61 @@ package body AVL_Trees is
    procedure Clear
      (The_Tree : in out T)
    is
-      procedure Clear_Tree;
-      pragma Inline (Clear_Tree);
-
-      procedure Clear_Tree
-      is
-         Node : AVL_Node_A := The_Tree.Root;
-      begin
+      Node_Pointer : AVL_Node_A := The_Tree.Root;
+   begin  --  Clear
+      if Node_Pointer /= null then
          loop
-            while Link_Type (Node, Left) = Child loop
-               Node := Link (Node, Left);
+            while Link_Type (Node_Pointer, Left) = Child loop
+               Node_Pointer := Link (Node_Pointer, Left);
             end loop;
 
-            while Link_Type (Node, Right) = Thread
-              and then Node.all.RL /= null
+            while Link_Type (Node_Pointer, Right) = Thread
+              and then Node_Pointer.all.RL /= null
             loop
-               Node := Link (Node, Right);
+               Node_Pointer := Link (Node_Pointer, Right);
 
-               if Link_Type (Link (Node, Left), Right) = Child then
-                  Set_Link (Link (Node, Left), Left, Node);
-                  Node := Link (Node, Left);
+               if Link_Type (Link (Node_Pointer, Left), Right) = Child
+               then
+                  Set_Link
+                    (Link (Node_Pointer, Left), Left, Node_Pointer);
+                  Node_Pointer := Link (Node_Pointer, Left);
 
-                  while Link_Type (Node, Right) = Child loop
-                     Set_Link (Link (Node, Right), Left, Node);
-                     Node := Link (Node, Right);
+                  while Link_Type (Node_Pointer, Right) = Child loop
+                     Set_Link
+                       (Link (Node_Pointer, Right), Left, Node_Pointer);
+                     Node_Pointer := Link (Node_Pointer, Right);
                   end loop;
 
-                  while Link (Link (Node, Left), Left) /= Node loop
-                     Node := Link (Node, Left);
-                     Deallocate_Link (Node, Right);
+                  while Link (Link (Node_Pointer, Left), Left)
+                    /= Node_Pointer
+                  loop
+                     Node_Pointer := Link (Node_Pointer, Left);
+                     Deallocate_Link (Node_Pointer, Right);
                   end loop;
 
-                  Node := Link (Node, Left);
+                  Node_Pointer := Link (Node_Pointer, Left);
                end if;
 
-               Deallocate_Link (Node, Left);
+               Deallocate_Link (Node_Pointer, Left);
             end loop;
 
-            exit when Link (Node, Right) = null;
+            exit when Link (Node_Pointer, Right) = null;
 
-            Node := Link (Node, Right);
+            Node_Pointer := Link (Node_Pointer, Right);
          end loop;
 
-         Node := The_Tree.Root;
+         Node_Pointer := The_Tree.Root;
 
-         while Link_Type (Node, Right) = Child loop
-            Set_Link (Link (Node, Right), Left, Node);
-            Node := Link (Node, Right);
+         while Link_Type (Node_Pointer, Right) = Child loop
+            Set_Link (Link (Node_Pointer, Right), Left, Node_Pointer);
+            Node_Pointer := Link (Node_Pointer, Right);
          end loop;
 
-         while Node /= The_Tree.Root loop
-            Node := Link (Node, Left);
-            Deallocate_Link (Node, Right);
+         while Node_Pointer /= The_Tree.Root loop
+            Node_Pointer := Link (Node_Pointer, Left);
+            Deallocate_Link (Node_Pointer, Right);
          end loop;
-      end Clear_Tree;
 
-   begin  --  Clear
-      if The_Tree.Root /= null then
-         Clear_Tree;
          --  According to ARM 13.11.2, Tree.Root does not need to be
          --  explicitly set to null after deallocation.
          Deallocate (The_Node => The_Tree.Root);
@@ -589,17 +599,17 @@ package body AVL_Trees is
      (Within_The_Tree : in T)
       return Key_T
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Within_The_Tree.Root;
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       end if;
 
-      while Link_Type (Node, Right) = Child loop
-         Node := Link (Node, Right);
+      while Link_Type (Node_Pointer, Right) = Child loop
+         Node_Pointer := Link (Node_Pointer, Right);
       end loop;
 
-      return Key_Of (The_Node => Node);
+      return Key_Of (The_Node => Node_Pointer);
    end Greatest_Key;
 
    function Height
@@ -620,57 +630,57 @@ package body AVL_Trees is
       procedure Insert_In_Tree
       is
          PNode : AVL_Node_A := Within_The_Tree.Root;
-         Node  : AVL_Node_A := Within_The_Tree.Root;
+         CNode : AVL_Node_A := Within_The_Tree.Root;
          NZRT  : AVL_Node_A := Within_The_Tree.Root;
          PNZRT : AVL_Node_A := null;
       begin
          loop
-            if Is_Key_Less (The_Key, Node) then
-               case Link_Type (Node, Left) is
+            if Is_Key_Less (The_Key, CNode) then
+               case Link_Type (CNode, Left) is
                   when Child =>
-                     Node := Link (Node, Left);
+                     CNode := Link (CNode, Left);
 
-                     if Node.all.Balance /= 0 then
+                     if CNode.all.Balance /= 0 then
                         PNZRT := PNode;
-                        NZRT  := Node;
+                        NZRT  := CNode;
                      end if;
 
-                     PNode := Node;
+                     PNode := CNode;
                   when Thread =>
                      Allocate
                        (Key        => The_Key,
                         Element    => With_Element,
-                        Left_Link  => Link (Node, Left),
+                        Left_Link  => Link (CNode, Left),
                         Left_Type  => Thread,
-                        Right_Link => Node,
+                        Right_Link => CNode,
                         Right_Type => Thread,
                         Balance    => 0,
                         The_Node   => PNode);
 
-                     Set_Link (Node, Left, PNode);
-                     Set_Link_Type (Node, Left, Child);
+                     Set_Link (CNode, Left, PNode);
+                     Set_Link_Type (CNode, Left, Child);
 
                      if Is_Key_Less (The_Key, NZRT) then
-                        Node := Link (NZRT, Left);
+                        CNode := Link (NZRT, Left);
 
                         loop
                            --  While moving down the tree towards the
                            --  new node, adjust the balance factors
                            --  along the way.
-                           if Is_Key_Less (The_Key, Node) then
+                           if Is_Key_Less (The_Key, CNode) then
                               --  The left subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := -1;
-                              Node             := Link (Node, Left);
-                           elsif Is_Node_Less (Node, The_Key) then
+                              CNode.all.Balance := -1;
+                              CNode             := Link (CNode, Left);
+                           elsif Is_Node_Less (CNode, The_Key) then
                               --  The right subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := +1;
-                              Node             := Link (Node, Right);
+                              CNode.all.Balance := +1;
+                              CNode             := Link (CNode, Right);
                            else
-                              --  Node is again equal to the new node.
+                              --  CNode is again equal to the new node.
                               exit;
                            end if;
                         end loop;
@@ -683,84 +693,84 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when -1 =>
-                              Node := Link (NZRT, Left);
+                              CNode := Link (NZRT, Left);
 
-                              if Node.all.Balance = -1 then
-                                 case Link_Type (Node, Right) is
+                              if CNode.all.Balance = -1 then
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (NZRT, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := NZRT;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := NZRT;
                                     when Thread =>
                                        Set_Link_Type
                                          (NZRT, Left, Thread);
                                        Set_Link_Type
-                                         (Node, Right, Child);
+                                         (CNode, Right, Child);
                                  end case;
 
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode        := Node;
-                                 Node         := PNode.all.RL;
-                                 PNode.all.RL := Link (Node, Left);
-                                 Set_Link (Node, Left, PNode);
+                                 PNode        := CNode;
+                                 CNode        := PNode.all.RL;
+                                 PNode.all.RL := Link (CNode, Left);
+                                 Set_Link (CNode, Left, PNode);
 
-                                 case Link_Type (Node, Right) is
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (NZRT, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := NZRT;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := NZRT;
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Right, Child);
-                                       Set_Link (NZRT, Left, Node);
+                                         (CNode, Right, Child);
+                                       Set_Link (NZRT, Left, CNode);
                                        Set_Link_Type
                                          (NZRT, Left, Thread);
                                  end case;
 
-                                 if Node.all.Balance = -1 then
+                                 if CNode.all.Balance = -1 then
                                     NZRT.all.Balance  := +1;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := 0;
                                  else
                                     NZRT.all.Balance  := 0;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := -1;
                                  end if;
                               end if;
 
                               if PNZRT = null then
-                                 Within_The_Tree.Root := Node;
+                                 Within_The_Tree.Root := CNode;
                               elsif Link (PNZRT, Left) = NZRT then
-                                 Set_Link (PNZRT, Left, Node);
+                                 Set_Link (PNZRT, Left, CNode);
                               else
-                                 PNZRT.all.RL := Node;
+                                 PNZRT.all.RL := CNode;
                               end if;
                         end case;
                      else
-                        Node := NZRT.all.RL;
+                        CNode := NZRT.all.RL;
 
                         loop
                            --  While moving down the tree towards the
                            --  new node, adjust the balance factors
                            --  along the way.
-                           if Is_Key_Less (The_Key, Node) then
+                           if Is_Key_Less (The_Key, CNode) then
                               --  The left subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := -1;
-                              Node             := Link (Node, Left);
-                           elsif Is_Node_Less (Node, The_Key) then
+                              CNode.all.Balance := -1;
+                              CNode             := Link (CNode, Left);
+                           elsif Is_Node_Less (CNode, The_Key) then
                               --  The right subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := +1;
-                              Node             := Link (Node, Right);
+                              CNode.all.Balance := +1;
+                              CNode             := Link (CNode, Right);
                            else
-                              --  Node is again equal to the new node.
+                              --  CNode is again equal to the new node.
                               exit;
                            end if;
                         end loop;
@@ -773,64 +783,64 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when +1 =>
-                              Node := NZRT.all.RL;
+                              CNode := NZRT.all.RL;
 
-                              if Node.all.Balance = +1 then
-                                 NZRT.all.RL := Link (Node, Left);
-                                 Set_Link (Node, Left, NZRT);
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                              if CNode.all.Balance = +1 then
+                                 NZRT.all.RL := Link (CNode, Left);
+                                 Set_Link (CNode, Left, NZRT);
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode := Node;
-                                 Node  := Link (PNode, Left);
+                                 PNode := CNode;
+                                 CNode := Link (PNode, Left);
 
-                                 case Link_Type (Node, Right) is
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (PNode, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := PNode;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := PNode;
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Right, Child);
+                                         (CNode, Right, Child);
                                        Set_Link_Type
                                          (PNode, Left, Thread);
                                  end case;
 
-                                 case Link_Type (Node, Left) is
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        NZRT.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, NZRT);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, NZRT);
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Left, Child);
-                                       NZRT.all.RL := Node;
+                                         (CNode, Left, Child);
+                                       NZRT.all.RL := CNode;
                                        Set_Link_Type
                                          (NZRT, Right, Thread);
                                  end case;
 
-                                 case Node.all.Balance is
+                                 case CNode.all.Balance is
                                     when +1 =>
                                        NZRT.all.Balance  := -1;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := 0;
                                     when 0 =>
                                        NZRT.all.Balance  := 0;
                                        PNode.all.Balance := 0;
                                     when -1 =>
                                        NZRT.all.Balance  := 0;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := +1;
                                  end case;
                               end if;
 
                               if PNZRT = null then
-                                 Within_The_Tree.Root := Node;
+                                 Within_The_Tree.Root := CNode;
                               elsif Link (PNZRT, Left) = NZRT then
-                                 Set_Link (PNZRT, Left, Node);
+                                 Set_Link (PNZRT, Left, CNode);
                               else
-                                 PNZRT.all.RL := Node;
+                                 PNZRT.all.RL := CNode;
                               end if;
                         end case;
                      end if;
@@ -839,52 +849,52 @@ package body AVL_Trees is
                        Within_The_Tree.Nodes + 1;
                      exit;
                end case;
-            elsif Is_Node_Less (Node, The_Key) then
-               case Link_Type (Node, Right) is
+            elsif Is_Node_Less (CNode, The_Key) then
+               case Link_Type (CNode, Right) is
                   when Child =>
-                     Node := Link (Node, Right);
+                     CNode := Link (CNode, Right);
 
-                     if Node.all.Balance /= 0 then
+                     if CNode.all.Balance /= 0 then
                         PNZRT := PNode;
-                        NZRT  := Node;
+                        NZRT  := CNode;
                      end if;
 
-                     PNode := Node;
+                     PNode := CNode;
                   when Thread =>
                      Allocate
                        (Key        => The_Key,
                         Element    => With_Element,
-                        Left_Link  => Node,
+                        Left_Link  => CNode,
                         Left_Type  => Thread,
-                        Right_Link => Node.all.RL,
+                        Right_Link => CNode.all.RL,
                         Right_Type => Thread,
                         Balance    => 0,
                         The_Node   => PNode);
 
-                     Node.all.RL := PNode;
-                     Set_Link_Type (Node, Right, Child);
+                     CNode.all.RL := PNode;
+                     Set_Link_Type (CNode, Right, Child);
 
                      if Is_Key_Less (The_Key, NZRT) then
-                        Node := Link (NZRT, Left);
+                        CNode := Link (NZRT, Left);
 
                         loop
                            --  While moving down the tree towards the
                            --  new node, adjust the balance factors
                            --  along the way.
-                           if Is_Key_Less (The_Key, Node) then
+                           if Is_Key_Less (The_Key, CNode) then
                               --  The left subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := -1;
-                              Node             := Link (Node, Left);
-                           elsif Is_Node_Less (Node, The_Key) then
+                              CNode.all.Balance := -1;
+                              CNode             := Link (CNode, Left);
+                           elsif Is_Node_Less (CNode, The_Key) then
                               --  The right subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := +1;
-                              Node             := Link (Node, Right);
+                              CNode.all.Balance := +1;
+                              CNode             := Link (CNode, Right);
                            else
-                              --  Node is again equal to the new node.
+                              --  CNode is again equal to the new node.
                               exit;
                            end if;
                         end loop;
@@ -897,88 +907,88 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when -1 =>
-                              Node := Link (NZRT, Left);
+                              CNode := Link (NZRT, Left);
 
-                              if Node.all.Balance = -1 then
+                              if CNode.all.Balance = -1 then
                                  Set_Link
-                                   (NZRT, Left, Link (Node, Right));
-                                 Node.all.RL      := NZRT;
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                                   (NZRT, Left, Link (CNode, Right));
+                                 CNode.all.RL      := NZRT;
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode := Node;
-                                 Node  := PNode.all.RL;
+                                 PNode := CNode;
+                                 CNode := PNode.all.RL;
 
-                                 case Link_Type (Node, Left) is
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        PNode.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, PNode);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, PNode);
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Left, Child);
+                                         (CNode, Left, Child);
                                        Set_Link_Type
                                          (PNode, Right, Thread);
                                  end case;
 
-                                 case Link_Type (Node, Right) is
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (NZRT, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := NZRT;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := NZRT;
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Right, Child);
-                                       Set_Link (NZRT, Left, Node);
+                                         (CNode, Right, Child);
+                                       Set_Link (NZRT, Left, CNode);
                                        Set_Link_Type
                                          (NZRT, Left, Thread);
                                  end case;
 
-                                 case Node.all.Balance is
+                                 case CNode.all.Balance is
                                     when -1 =>
                                        NZRT.all.Balance  := +1;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := 0;
                                     when 0 =>
                                        NZRT.all.Balance  := 0;
                                        PNode.all.Balance := 0;
                                     when +1 =>
                                        NZRT.all.Balance  := 0;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := -1;
                                  end case;
                               end if;
 
                               if PNZRT = null then
-                                 Within_The_Tree.Root := Node;
+                                 Within_The_Tree.Root := CNode;
                               elsif Link (PNZRT, Left) = NZRT then
-                                 Set_Link (PNZRT, Left, Node);
+                                 Set_Link (PNZRT, Left, CNode);
                               else
-                                 PNZRT.all.RL := Node;
+                                 PNZRT.all.RL := CNode;
                               end if;
                         end case;
                      else
-                        Node := NZRT.all.RL;
+                        CNode := NZRT.all.RL;
 
                         loop
                            --  While moving down the tree towards the
                            --  new node, adjust the balance factors
                            --  along the way.
-                           if Is_Key_Less (The_Key, Node) then
+                           if Is_Key_Less (The_Key, CNode) then
                               --  The left subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := -1;
-                              Node             := Link (Node, Left);
-                           elsif Is_Node_Less (Node, The_Key) then
+                              CNode.all.Balance := -1;
+                              CNode             := Link (CNode, Left);
+                           elsif Is_Node_Less (CNode, The_Key) then
                               --  The right subtree of the node has
                               --  become heavy due to the new
                               --  addition.
-                              Node.all.Balance := +1;
-                              Node             := Link (Node, Right);
+                              CNode.all.Balance := +1;
+                              CNode             := Link (CNode, Right);
                            else
-                              --  Node is again equal to the new node.
+                              --  CNode is again equal to the new node.
                               exit;
                            end if;
                         end loop;
@@ -991,60 +1001,60 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when +1 =>
-                              Node := NZRT.all.RL;
+                              CNode := NZRT.all.RL;
 
-                              if Node.all.Balance = +1 then
-                                 case Link_Type (Node, Left) is
+                              if CNode.all.Balance = +1 then
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        NZRT.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, NZRT);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, NZRT);
                                     when Thread =>
                                        Set_Link_Type
                                          (NZRT, Right, Thread);
                                        Set_Link_Type
-                                         (Node, Left, Child);
+                                         (CNode, Left, Child);
                                  end case;
 
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode := Node;
-                                 Node  := Link (PNode, Left);
+                                 PNode := CNode;
+                                 CNode := Link (PNode, Left);
                                  Set_Link
-                                   (PNode, Left, Link (Node, Right));
-                                 Node.all.RL := PNode;
+                                   (PNode, Left, Link (CNode, Right));
+                                 CNode.all.RL := PNode;
 
-                                 case Link_Type (Node, Left) is
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        NZRT.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, NZRT);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, NZRT);
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Left, Child);
-                                       NZRT.all.RL := Node;
+                                         (CNode, Left, Child);
+                                       NZRT.all.RL := CNode;
                                        Set_Link_Type
                                          (NZRT, Right, Thread);
                                  end case;
 
-                                 if Node.all.Balance = +1 then
+                                 if CNode.all.Balance = +1 then
                                     NZRT.all.Balance  := -1;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := 0;
                                  else
                                     NZRT.all.Balance  := 0;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := +1;
                                  end if;
                               end if;
 
                               if PNZRT = null then
-                                 Within_The_Tree.Root := Node;
+                                 Within_The_Tree.Root := CNode;
                               elsif Link (PNZRT, Left) = NZRT then
-                                 Set_Link (PNZRT, Left, Node);
+                                 Set_Link (PNZRT, Left, CNode);
                               else
-                                 PNZRT.all.RL := Node;
+                                 PNZRT.all.RL := CNode;
                               end if;
                         end case;
                      end if;
@@ -1092,7 +1102,7 @@ package body AVL_Trees is
          procedure Attach_Tree;
 
          PNode : AVL_Node_A := Within_The_Tree.Root;
-         Node  : AVL_Node_A := Within_The_Tree.Root;
+         CNode : AVL_Node_A := Within_The_Tree.Root;
          NZRT  : AVL_Node_A := Within_The_Tree.Root;
          PNZRT : AVL_Node_A := null;
 
@@ -1102,18 +1112,18 @@ package body AVL_Trees is
             loop
                --  While moving down the tree towards the new node,
                --  adjust the balance factors along the way.
-               if Is_Key_Less (The_Key, Node) then
+               if Is_Key_Less (The_Key, CNode) then
                   --  The left subtree of the node has become
                   --  heavy due to the new addition.
-                  Node.all.Balance := -1;
-                  Node             := Link (Node, Left);
-               elsif Is_Node_Less (Node, The_Key) then
+                  CNode.all.Balance := -1;
+                  CNode             := Link (CNode, Left);
+               elsif Is_Node_Less (CNode, The_Key) then
                   --  The right subtree of the node has become
                   --  heavy due to the new addition.
-                  Node.all.Balance := +1;
-                  Node             := Link (Node, Right);
+                  CNode.all.Balance := +1;
+                  CNode             := Link (CNode, Right);
                else
-                  --  Node is again equal to the new node.
+                  --  CNode is again equal to the new node.
                   exit;
                end if;
             end loop;
@@ -1123,43 +1133,43 @@ package body AVL_Trees is
          is
          begin
             if PNZRT = null then
-               Within_The_Tree.Root := Node;
+               Within_The_Tree.Root := CNode;
             elsif Link (PNZRT, Left) = NZRT then
-               Set_Link (PNZRT, Left, Node);
+               Set_Link (PNZRT, Left, CNode);
             else
-               PNZRT.all.RL := Node;
+               PNZRT.all.RL := CNode;
             end if;
          end Attach_Tree;
 
       begin  --  Insert_Or_Replace_In_Tree
          loop
-            if Is_Key_Less (The_Key, Node) then
-               case Link_Type (Node, Left) is
+            if Is_Key_Less (The_Key, CNode) then
+               case Link_Type (CNode, Left) is
                   when Child =>
-                     Node := Link (Node, Left);
+                     CNode := Link (CNode, Left);
 
-                     if Node.all.Balance /= 0 then
+                     if CNode.all.Balance /= 0 then
                         PNZRT := PNode;
-                        NZRT  := Node;
+                        NZRT  := CNode;
                      end if;
 
-                     PNode := Node;
+                     PNode := CNode;
                   when Thread =>
                      Allocate
                        (Key        => The_Key,
                         Element    => With_Element,
-                        Left_Link  => Link (Node, Left),
+                        Left_Link  => Link (CNode, Left),
                         Left_Type  => Thread,
-                        Right_Link => Node,
+                        Right_Link => CNode,
                         Right_Type => Thread,
                         Balance    => 0,
                         The_Node   => PNode);
 
-                     Set_Link (Node, Left, PNode);
-                     Set_Link_Type (Node, Left, Child);
+                     Set_Link (CNode, Left, PNode);
+                     Set_Link_Type (CNode, Left, Child);
 
                      if Is_Key_Less (The_Key, NZRT) then
-                        Node := Link (NZRT, Left);
+                        CNode := Link (NZRT, Left);
 
                         Adjust_Balance;
 
@@ -1171,51 +1181,51 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when -1 =>
-                              Node := Link (NZRT, Left);
+                              CNode := Link (NZRT, Left);
 
-                              if Node.all.Balance = -1 then
-                                 case Link_Type (Node, Right) is
+                              if CNode.all.Balance = -1 then
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (NZRT, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := NZRT;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := NZRT;
                                     when Thread =>
                                        Set_Link_Type
                                          (NZRT, Left, Thread);
                                        Set_Link_Type
-                                         (Node, Right, Child);
+                                         (CNode, Right, Child);
                                  end case;
 
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode        := Node;
-                                 Node         := PNode.all.RL;
-                                 PNode.all.RL := Link (Node, Left);
-                                 Set_Link (Node, Left, PNode);
+                                 PNode        := CNode;
+                                 CNode        := PNode.all.RL;
+                                 PNode.all.RL := Link (CNode, Left);
+                                 Set_Link (CNode, Left, PNode);
 
-                                 case Link_Type (Node, Right) is
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (NZRT, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := NZRT;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := NZRT;
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Right, Child);
-                                       Set_Link (NZRT, Left, Node);
+                                         (CNode, Right, Child);
+                                       Set_Link (NZRT, Left, CNode);
                                        Set_Link_Type
                                          (NZRT, Left, Thread);
                                  end case;
 
-                                 if Node.all.Balance = -1 then
+                                 if CNode.all.Balance = -1 then
                                     NZRT.all.Balance  := +1;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := 0;
                                  else
                                     NZRT.all.Balance  := 0;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := -1;
                                  end if;
                               end if;
@@ -1223,7 +1233,7 @@ package body AVL_Trees is
                               Attach_Tree;
                         end case;
                      else
-                        Node := NZRT.all.RL;
+                        CNode := NZRT.all.RL;
 
                         Adjust_Balance;
 
@@ -1235,54 +1245,54 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when +1 =>
-                              Node := NZRT.all.RL;
+                              CNode := NZRT.all.RL;
 
-                              if Node.all.Balance = +1 then
-                                 NZRT.all.RL := Link (Node, Left);
-                                 Set_Link (Node, Left, NZRT);
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                              if CNode.all.Balance = +1 then
+                                 NZRT.all.RL := Link (CNode, Left);
+                                 Set_Link (CNode, Left, NZRT);
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode := Node;
-                                 Node  := Link (PNode, Left);
+                                 PNode := CNode;
+                                 CNode := Link (PNode, Left);
 
-                                 case Link_Type (Node, Right) is
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (PNode, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := PNode;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := PNode;
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Right, Child);
+                                         (CNode, Right, Child);
                                        Set_Link_Type
                                          (PNode, Left, Thread);
                                  end case;
 
-                                 case Link_Type (Node, Left) is
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        NZRT.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, NZRT);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, NZRT);
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Left, Child);
-                                       NZRT.all.RL := Node;
+                                         (CNode, Left, Child);
+                                       NZRT.all.RL := CNode;
                                        Set_Link_Type
                                          (NZRT, Right, Thread);
                                  end case;
 
-                                 case Node.all.Balance is
+                                 case CNode.all.Balance is
                                     when +1 =>
                                        NZRT.all.Balance  := -1;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := 0;
                                     when 0 =>
                                        NZRT.all.Balance  := 0;
                                        PNode.all.Balance := 0;
                                     when -1 =>
                                        NZRT.all.Balance  := 0;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := +1;
                                  end case;
                               end if;
@@ -1295,33 +1305,33 @@ package body AVL_Trees is
                        Within_The_Tree.Nodes + 1;
                      exit;
                end case;
-            elsif Is_Node_Less (Node, The_Key) then
-               case Link_Type (Node, Right) is
+            elsif Is_Node_Less (CNode, The_Key) then
+               case Link_Type (CNode, Right) is
                   when Child =>
-                     Node := Link (Node, Right);
+                     CNode := Link (CNode, Right);
 
-                     if Node.all.Balance /= 0 then
+                     if CNode.all.Balance /= 0 then
                         PNZRT := PNode;
-                        NZRT  := Node;
+                        NZRT  := CNode;
                      end if;
 
-                     PNode := Node;
+                     PNode := CNode;
                   when Thread =>
                      Allocate
                        (Key        => The_Key,
                         Element    => With_Element,
-                        Left_Link  => Node,
+                        Left_Link  => CNode,
                         Left_Type  => Thread,
-                        Right_Link => Node.all.RL,
+                        Right_Link => CNode.all.RL,
                         Right_Type => Thread,
                         Balance    => 0,
                         The_Node   => PNode);
 
-                     Node.all.RL := PNode;
-                     Set_Link_Type (Node, Right, Child);
+                     CNode.all.RL := PNode;
+                     Set_Link_Type (CNode, Right, Child);
 
                      if Is_Key_Less (The_Key, NZRT) then
-                        Node := Link (NZRT, Left);
+                        CNode := Link (NZRT, Left);
 
                         Adjust_Balance;
 
@@ -1333,55 +1343,55 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when -1 =>
-                              Node := Link (NZRT, Left);
+                              CNode := Link (NZRT, Left);
 
-                              if Node.all.Balance = -1 then
+                              if CNode.all.Balance = -1 then
                                  Set_Link
-                                   (NZRT, Left, Link (Node, Right));
-                                 Node.all.RL      := NZRT;
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                                   (NZRT, Left, Link (CNode, Right));
+                                 CNode.all.RL      := NZRT;
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode := Node;
-                                 Node  := PNode.all.RL;
+                                 PNode := CNode;
+                                 CNode := PNode.all.RL;
 
-                                 case Link_Type (Node, Left) is
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        PNode.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, PNode);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, PNode);
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Left, Child);
+                                         (CNode, Left, Child);
                                        Set_Link_Type
                                          (PNode, Right, Thread);
                                  end case;
 
-                                 case Link_Type (Node, Right) is
+                                 case Link_Type (CNode, Right) is
                                     when Child =>
                                        Set_Link
                                          (NZRT, Left,
-                                          Link (Node, Right));
-                                       Node.all.RL := NZRT;
+                                          Link (CNode, Right));
+                                       CNode.all.RL := NZRT;
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Right, Child);
-                                       Set_Link (NZRT, Left, Node);
+                                         (CNode, Right, Child);
+                                       Set_Link (NZRT, Left, CNode);
                                        Set_Link_Type
                                          (NZRT, Left, Thread);
                                  end case;
 
-                                 case Node.all.Balance is
+                                 case CNode.all.Balance is
                                     when -1 =>
                                        NZRT.all.Balance  := +1;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := 0;
                                     when 0 =>
                                        NZRT.all.Balance  := 0;
                                        PNode.all.Balance := 0;
                                     when +1 =>
                                        NZRT.all.Balance  := 0;
-                                       Node.all.Balance  := 0;
+                                       CNode.all.Balance := 0;
                                        PNode.all.Balance := -1;
                                  end case;
                               end if;
@@ -1389,7 +1399,7 @@ package body AVL_Trees is
                               Attach_Tree;
                         end case;
                      else
-                        Node := NZRT.all.RL;
+                        CNode := NZRT.all.RL;
 
                         Adjust_Balance;
 
@@ -1401,50 +1411,50 @@ package body AVL_Trees is
                               Within_The_Tree.Height :=
                                 Within_The_Tree.Height + 1;
                            when +1 =>
-                              Node := NZRT.all.RL;
+                              CNode := NZRT.all.RL;
 
-                              if Node.all.Balance = +1 then
-                                 case Link_Type (Node, Left) is
+                              if CNode.all.Balance = +1 then
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        NZRT.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, NZRT);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, NZRT);
                                     when Thread =>
                                        Set_Link_Type
                                          (NZRT, Right, Thread);
                                        Set_Link_Type
-                                         (Node, Left, Child);
+                                         (CNode, Left, Child);
                                  end case;
 
-                                 NZRT.all.Balance := 0;
-                                 Node.all.Balance := 0;
+                                 NZRT.all.Balance  := 0;
+                                 CNode.all.Balance := 0;
                               else
-                                 PNode := Node;
-                                 Node  := Link (PNode, Left);
+                                 PNode := CNode;
+                                 CNode := Link (PNode, Left);
                                  Set_Link
-                                   (PNode, Left, Link (Node, Right));
-                                 Node.all.RL := PNode;
+                                   (PNode, Left, Link (CNode, Right));
+                                 CNode.all.RL := PNode;
 
-                                 case Link_Type (Node, Left) is
+                                 case Link_Type (CNode, Left) is
                                     when Child =>
                                        NZRT.all.RL :=
-                                         Link (Node, Left);
-                                       Set_Link (Node, Left, NZRT);
+                                         Link (CNode, Left);
+                                       Set_Link (CNode, Left, NZRT);
                                     when Thread =>
                                        Set_Link_Type
-                                         (Node, Left, Child);
-                                       NZRT.all.RL := Node;
+                                         (CNode, Left, Child);
+                                       NZRT.all.RL := CNode;
                                        Set_Link_Type
                                          (NZRT, Right, Thread);
                                  end case;
 
-                                 if Node.all.Balance = +1 then
+                                 if CNode.all.Balance = +1 then
                                     NZRT.all.Balance  := -1;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := 0;
                                  else
                                     NZRT.all.Balance  := 0;
-                                    Node.all.Balance  := 0;
+                                    CNode.all.Balance := 0;
                                     PNode.all.Balance := +1;
                                  end if;
                               end if;
@@ -1458,7 +1468,7 @@ package body AVL_Trees is
                      exit;
                end case;
             else
-               Replace_Element (Node, With_Element);
+               Replace_Element (CNode, With_Element);
                exit;
             end if;
          end loop;
@@ -1540,27 +1550,8 @@ package body AVL_Trees is
       The_Key         : in Key_T)
       return Boolean
    is
-      Result : Boolean    := False;
-      Node   : AVL_Node_A := Within_The_Tree.Root;
    begin
-      if Node /= null then
-         loop
-            if Is_Key_Less (The_Key, Node) then
-               exit when Link_Type (Node, Left) = Thread;
-
-               Node := Link (Node, Left);
-            elsif Is_Node_Less (Node, The_Key) then
-               exit when Link_Type (Node, Right) = Thread;
-
-               Node := Link (Node, Right);
-            else
-               Result := True;
-               exit;
-            end if;
-         end loop;
-      end if;
-
-      return Result;
+      return Node (Within_The_Tree, The_Key) /= null;
    end Is_Present;
 
    function Key_Of
@@ -1576,21 +1567,33 @@ package body AVL_Trees is
      (Within_The_Tree : in T)
       return Key_T
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : constant AVL_Node_A :=
+        Least_Node (Within_The_Tree);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       end if;
 
-      while Link_Type (Node, Left) = Child loop
-         Node := Link (Node, Left);
-      end loop;
-
-      return Key_Of (The_Node => Node);
+      return Key_Of (The_Node => Node_Pointer);
    end Least_Key;
 
+   function Least_Node
+     (Within_The_Tree : in T)
+      return AVL_Node_A
+   is
+      Node_Pointer : AVL_Node_A := Within_The_Tree.Root;
+   begin
+      if Node_Pointer /= null then
+         while Link_Type (Node_Pointer, Left) = Child loop
+            Node_Pointer := Link (Node_Pointer, Left);
+         end loop;
+      end if;
+
+      return Node_Pointer;
+   end Least_Node;
+
    function Link
-     (Node      : in AVL_Node_A;
+     (Of_Node   : in AVL_Node_A;
       Direction : in Direction_T)
       return AVL_Node_A
    is
@@ -1601,23 +1604,23 @@ package body AVL_Trees is
 
       Result : AVL_Node_A;
    begin
-      pragma Assert (Node /= null);
+      pragma Assert (Of_Node /= null);
 
       case Direction is
          when Left =>
             Result :=
               Booleans_To_Access
-                (Address_To_Booleans (Node.all.Left_Link)
+                (Address_To_Booleans (Of_Node.all.Left_Link)
                  and Address_Mask);
          when Right =>
-            Result := Node.all.RL;
+            Result := Of_Node.all.RL;
       end case;
 
       return Result;
    end Link;
 
    function Link_Type
-     (Node      : in AVL_Node_A;
+     (Of_Node   : in AVL_Node_A;
       Direction : in Direction_T)
       return Link_T
    is
@@ -1625,9 +1628,9 @@ package body AVL_Trees is
       Bit              : Address_Index_T;
       Result           : Link_T;
    begin
-      pragma Assert (Node /= null);
+      pragma Assert (Of_Node /= null);
 
-      Address_Booleans := Address_To_Booleans (Node.all.Left_Link);
+      Address_Booleans := Address_To_Booleans (Of_Node.all.Left_Link);
 
       case Direction is
          when Left =>
@@ -1645,6 +1648,38 @@ package body AVL_Trees is
 
       return Result;
    end Link_Type;
+
+   function Node
+     (Within_The_Tree : in T;
+      That_Has_Key    : in Key_T)
+      return AVL_Node_A
+   is
+      Node_Pointer : AVL_Node_A := Within_The_Tree.Root;
+   begin
+      if Node_Pointer /= null then
+         loop
+            if Is_Key_Less (That_Has_Key, Node_Pointer) then
+               if Link_Type (Node_Pointer, Left) = Child then
+                  Node_Pointer := Link (Node_Pointer, Left);
+               else
+                  Node_Pointer := null;
+                  exit;
+               end if;
+            elsif Is_Node_Less (Node_Pointer, That_Has_Key) then
+               if Link_Type (Node_Pointer, Right) = Child then
+                  Node_Pointer := Link (Node_Pointer, Right);
+               else
+                  Node_Pointer := null;
+                  exit;
+               end if;
+            else
+               exit;
+            end if;
+         end loop;
+      end if;
+
+      return Node_Pointer;
+   end Node;
 
    function Nodes
      (Within_The_Tree : in T)
@@ -1671,13 +1706,13 @@ package body AVL_Trees is
    end Opposite;
 
    function Parent
-     (Node : in AVL_Node_A)
+     (Of_Node : in AVL_Node_A)
       return AVL_Node_A
    is
       --  Place the result in LNode, avoiding the use of another
       --  variable or multiple return statements.
-      LNode : AVL_Node_A := Node;
-      RNode : AVL_Node_A := Node;
+      LNode : AVL_Node_A := Of_Node;
+      RNode : AVL_Node_A := Of_Node;
    begin
       --  The chain of children to the left or right may end far
       --  sooner than that of the opposite chain, so stop as soon
@@ -1686,7 +1721,7 @@ package body AVL_Trees is
          if Link_Type (LNode, Left) = Thread then
             LNode := Link (LNode, Left);
 
-            if LNode = null or else LNode.all.RL /= Node then
+            if LNode = null or else LNode.all.RL /= Of_Node then
                while Link_Type (RNode, Right) = Child loop
                   RNode := RNode.all.RL;
                end loop;
@@ -1700,7 +1735,7 @@ package body AVL_Trees is
          if Link_Type (RNode, Right) = Thread then
             RNode := RNode.all.RL;
 
-            if RNode = null or else Link (RNode, Left) /= Node then
+            if RNode = null or else Link (RNode, Left) /= Of_Node then
                while Link_Type (LNode, Left) = Child loop
                   LNode := Link (LNode, Left);
                end loop;
@@ -1727,48 +1762,30 @@ package body AVL_Trees is
       Of_The_Key      : in Key_T)
       return Key_T
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
+      else
+         case Link_Type (Node_Pointer, Left) is
+            when Child =>
+               Node_Pointer := Link (Node_Pointer, Left);
+
+               while Link_Type (Node_Pointer, Right) /= Thread loop
+                  Node_Pointer := Link (Node_Pointer, Right);
+               end loop;
+
+               return Key_Of (Node_Pointer);
+            when Thread =>
+               if Link (Node_Pointer, Left) = null then
+                  raise Key_Not_Found;
+               end if;
+
+               Node_Pointer := Link (Node_Pointer, Left);
+
+               return Key_Of (Node_Pointer);
+         end case;
       end if;
-
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            case Link_Type (Node, Left) is
-               when Child =>
-                  Node := Link (Node, Left);
-               when Thread =>
-                  raise Key_Not_Found;
-            end case;
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            case Link_Type (Node, Right) is
-               when Child =>
-                  Node := Link (Node, Right);
-               when Thread =>
-                  raise Key_Not_Found;
-            end case;
-         else
-            case Link_Type (Node, Left) is
-               when Child =>
-                  Node := Link (Node, Left);
-
-                  while Link_Type (Node, Right) /= Thread loop
-                     Node := Link (Node, Right);
-                  end loop;
-
-                  return Key_Of (Node);
-               when Thread =>
-                  if Link (Node, Left) = null then
-                     raise Key_Not_Found;
-                  end if;
-
-                  Node := Link (Node, Left);
-
-                  return Key_Of (Node);
-            end case;
-         end if;
-      end loop;
    end Predecessor_Key;
 
    procedure Remove
@@ -2453,30 +2470,14 @@ package body AVL_Trees is
       The_Key         : in     Key_T;
       With_Element    : in     Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : constant AVL_Node_A :=
+        Node (Within_The_Tree, The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
+      else
+         Replace_Element (Node_Pointer, With_Element);
       end if;
-
-      loop
-         if Is_Key_Less (The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
-         else
-            Replace_Element (Node, With_Element);
-            exit;
-         end if;
-      end loop;
    end Replace;
 
    procedure Replace_Element
@@ -2492,34 +2493,31 @@ package body AVL_Trees is
      (Within_The_Tree : in out T;
       With_Element    : in     Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Within_The_Tree.Root;
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       end if;
 
-      while Link_Type (Node, Right) = Child loop
-         Node := Link (Node, Right);
+      while Link_Type (Node_Pointer, Right) = Child loop
+         Node_Pointer := Link (Node_Pointer, Right);
       end loop;
 
-      Replace_Element (Node, With_Element);
+      Replace_Element (Node_Pointer, With_Element);
    end Replace_Greatest;
 
    procedure Replace_Least
      (Within_The_Tree : in out T;
       With_Element    : in     Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : constant AVL_Node_A :=
+        Least_Node (Within_The_Tree);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
+      else
+         Replace_Element (Node_Pointer, With_Element);
       end if;
-
-      while Link_Type (Node, Left) = Child loop
-         Node := Link (Node, Left);
-      end loop;
-
-      Replace_Element (Node, With_Element);
    end Replace_Least;
 
    procedure Replace_Predecessor
@@ -2527,45 +2525,27 @@ package body AVL_Trees is
       Of_The_Key      : in     Key_T;
       With_Element    : in     Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
+      else
+         case Link_Type (Node_Pointer, Left) is
+            when Child =>
+               Node_Pointer := Link (Node_Pointer, Left);
+
+               while Link_Type (Node_Pointer, Right) /= Thread loop
+                  Node_Pointer := Link (Node_Pointer, Right);
+               end loop;
+
+               Replace_Element (Node_Pointer, With_Element);
+            when Thread =>
+               if Link (Node_Pointer, Left) /= null then
+                  Node_Pointer := Link (Node_Pointer, Left);
+                  Replace_Element (Node_Pointer, With_Element);
+               end if;
+         end case;
       end if;
-
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
-         else
-            case Link_Type (Node, Left) is
-               when Child =>
-                  Node := Link (Node, Left);
-
-                  while Link_Type (Node, Right) /= Thread loop
-                     Node := Link (Node, Right);
-                  end loop;
-
-                  Replace_Element (Node, With_Element);
-               when Thread =>
-                  if Link (Node, Left) /= null then
-                     Node := Link (Node, Left);
-                     Replace_Element (Node, With_Element);
-                  end if;
-            end case;
-
-            exit;
-         end if;
-      end loop;
    end Replace_Predecessor;
 
    procedure Replace_Successor
@@ -2573,37 +2553,19 @@ package body AVL_Trees is
       Of_The_Key      : in     Key_T;
       With_Element    : in     Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            exit when Link_Type (Node, Left) = Thread;
+      if Node_Pointer = null then
+         raise Key_Not_Found;
+      else
+         Node_Pointer := Successor_Node (Node_Pointer);
 
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            exit when Link_Type (Node, Right) = Thread;
-
-            Node := Link (Node, Right);
+         if Node_Pointer = null then
+            raise Key_Not_Found;
          else
-            case Link_Type (Node, Right) is
-               when Child =>
-                  Node := Link (Node, Right);
-
-                  while Link_Type (Node, Left) /= Thread loop
-                     Node := Link (Node, Left);
-                  end loop;
-
-                  Replace_Element (Node, With_Element);
-               when Thread =>
-                  if Node.all.RL /= null then
-                     Node := Link (Node, Right);
-                     Replace_Element (Node, With_Element);
-                  end if;
-            end case;
-
-            exit;
+            Replace_Element (Node_Pointer, With_Element);
          end if;
-      end loop;
+      end if;
    end Replace_Successor;
 
    procedure Retrieve
@@ -2611,29 +2573,13 @@ package body AVL_Trees is
       The_Key          : in     Key_T;
       Into_The_Element :    out Element_T)
    is
-      Node : AVL_Node_A := From_The_Tree.Root;
+      Node_Pointer : constant AVL_Node_A :=
+        Node (From_The_Tree, The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       else
-         loop
-            if Is_Key_Less (The_Key, Node) then
-               if Link_Type (Node, Left) = Thread then
-                  raise Key_Not_Found;
-               else
-                  Node := Link (Node, Left);
-               end if;
-            elsif Is_Node_Less (Node, The_Key) then
-               if Link_Type (Node, Right) = Thread then
-                  raise Key_Not_Found;
-               else
-                  Node := Link (Node, Right);
-               end if;
-            else
-               Into_The_Element := Element_Of (The_Node => Node);
-               exit;
-            end if;
-         end loop;
+         Into_The_Element := Element_Of (The_Node => Node_Pointer);
       end if;
    end Retrieve;
 
@@ -2641,16 +2587,16 @@ package body AVL_Trees is
      (From_The_Tree    : in     T;
       Into_The_Element :    out Element_T)
    is
-      Node : AVL_Node_A := From_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := From_The_Tree.Root;
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       else
-         while Link_Type (Node, Right) = Child loop
-            Node := Link (Node, Right);
+         while Link_Type (Node_Pointer, Right) = Child loop
+            Node_Pointer := Link (Node_Pointer, Right);
          end loop;
 
-         Into_The_Element := Element_Of (The_Node => Node);
+         Into_The_Element := Element_Of (The_Node => Node_Pointer);
       end if;
    end Retrieve_Greatest;
 
@@ -2658,16 +2604,12 @@ package body AVL_Trees is
      (From_The_Tree    : in     T;
       Into_The_Element :    out Element_T)
    is
-      Node : AVL_Node_A := From_The_Tree.Root;
+      Node_Pointer : constant AVL_Node_A := Least_Node (From_The_Tree);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       else
-         while Link_Type (Node, Left) = Child loop
-            Node := Link (Node, Left);
-         end loop;
-
-         Into_The_Element := Element_Of (The_Node => Node);
+         Into_The_Element := Element_Of (The_Node => Node_Pointer);
       end if;
    end Retrieve_Least;
 
@@ -2676,45 +2618,29 @@ package body AVL_Trees is
       Of_The_Key       : in     Key_T;
       Into_The_Element : in out Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
+      else
+         case Link_Type (Node_Pointer, Left) is
+            when Child =>
+               Node_Pointer := Link (Node_Pointer, Left);
+
+               while Link_Type (Node_Pointer, Right) /= Thread loop
+                  Node_Pointer := Link (Node_Pointer, Right);
+               end loop;
+
+               Into_The_Element :=
+                 Element_Of (The_Node => Node_Pointer);
+            when Thread =>
+               if Link (Node_Pointer, Left) /= null then
+                  Node_Pointer     := Link (Node_Pointer, Left);
+                  Into_The_Element :=
+                    Element_Of (The_Node => Node_Pointer);
+               end if;
+         end case;
       end if;
-
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
-         else
-            case Link_Type (Node, Left) is
-               when Child =>
-                  Node := Link (Node, Left);
-
-                  while Link_Type (Node, Right) /= Thread loop
-                     Node := Link (Node, Right);
-                  end loop;
-
-                  Into_The_Element := Element_Of (The_Node => Node);
-               when Thread =>
-                  if Link (Node, Left) /= null then
-                     Node             := Link (Node, Left);
-                     Into_The_Element := Element_Of (The_Node => Node);
-                  end if;
-            end case;
-
-            exit;
-         end if;
-      end loop;
    end Retrieve_Predecessor;
 
    procedure Retrieve_Successor
@@ -2722,45 +2648,20 @@ package body AVL_Trees is
       Of_The_Key       : in     Key_T;
       Into_The_Element : in out Element_T)
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
-      end if;
+      else
+         Node_Pointer := Successor_Node (Node_Pointer);
 
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
+         if Node_Pointer = null then
+            raise Key_Not_Found;
          else
-            case Link_Type (Node, Right) is
-               when Child =>
-                  Node := Link (Node, Right);
-
-                  while Link_Type (Node, Left) /= Thread loop
-                     Node := Link (Node, Left);
-                  end loop;
-
-                  Into_The_Element := Element_Of (The_Node => Node);
-               when Thread =>
-                  if Node.all.RL /= null then
-                     Node             := Link (Node, Right);
-                     Into_The_Element := Element_Of (The_Node => Node);
-                  end if;
-            end case;
-
-            exit;
+            Into_The_Element :=
+              Element_Of (The_Node => Node_Pointer);
          end if;
-      end loop;
+      end if;
    end Retrieve_Successor;
 
    procedure Set_Link
@@ -2821,111 +2722,96 @@ package body AVL_Trees is
       Of_The_Key      : in Key_T)
       return Key_T
    is
-      Node : AVL_Node_A := Within_The_Tree.Root;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
+         --  Could not find the original key.
          raise Key_Not_Found;
+      else
+         Node_Pointer := Successor_Node (Node_Pointer);
+
+         if Node_Pointer = null then
+            --  Could not find the successor key.
+            raise Key_Not_Found;
+         end if;
       end if;
 
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            case Link_Type (Node, Left) is
-               when Child =>
-                  Node := Link (Node, Left);
-               when Thread =>
-                  raise Key_Not_Found;
-            end case;
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            case Link_Type (Node, Right) is
-               when Child =>
-                  Node := Link (Node, Right);
-               when Thread =>
-                  raise Key_Not_Found;
-            end case;
-         else
-            case Link_Type (Node, Right) is
-               when Child =>
-                  Node := Link (Node, Right);
-
-                  while Link_Type (Node, Left) /= Thread loop
-                     Node := Link (Node, Left);
-                  end loop;
-
-                  return Key_Of (The_Node => Node);
-               when Thread =>
-                  if Node.all.RL = null then
-                     raise Key_Not_Found;
-                  end if;
-
-                  Node := Link (Node, Right);
-
-                  return Key_Of (The_Node => Node);
-            end case;
-         end if;
-      end loop;
+      return Key_Of (The_Node => Node_Pointer);
    end Successor_Key;
+
+   function Successor_Node
+     (Of_Node : in AVL_Node_A)
+      return AVL_Node_A
+   is
+      Node_Pointer : AVL_Node_A := null;
+   begin
+      pragma Assert (Of_Node /= null);
+      Node_Pointer := Of_Node;
+
+      case Link_Type (Node_Pointer, Right) is
+         when Child =>
+            Node_Pointer := Link (Node_Pointer, Right);
+
+            while Link_Type (Node_Pointer, Left) /= Thread loop
+               Node_Pointer := Link (Node_Pointer, Left);
+            end loop;
+         when Thread =>
+            Node_Pointer := Link (Node_Pointer, Right);
+      end case;
+
+      return Node_Pointer;
+   end Successor_Node;
 
    procedure Swap
      (Within_The_Tree  : in out T;
       The_Key          : in     Key_T;
       With_The_Element : in out Element_T)
    is
-      Swap_C : constant Element_T := With_The_Element;
-      Node   : AVL_Node_A         := Within_The_Tree.Root;
+      Swap_C       : constant Element_T  := With_The_Element;
+      Node_Pointer : constant AVL_Node_A :=
+        Node (Within_The_Tree, The_Key);
    begin
-      loop
-         if Is_Key_Less (The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
-         else
-            With_The_Element := Element_Of (The_Node => Node);
-            Replace_Element (Node, Swap_C);
-            exit;
-         end if;
-      end loop;
+      if Node_Pointer = null then
+         raise Key_Not_Found;
+      else
+         With_The_Element := Element_Of (The_Node => Node_Pointer);
+         Replace_Element (Node_Pointer, Swap_C);
+      end if;
    end Swap;
 
    procedure Swap_Greatest
      (Within_The_Tree  : in out T;
       With_The_Element : in out Element_T)
    is
-      Swap_C : constant Element_T := With_The_Element;
-      Node   : AVL_Node_A         := Within_The_Tree.Root;
+      Swap_C       : constant Element_T := With_The_Element;
+      Node_Pointer : AVL_Node_A         := Within_The_Tree.Root;
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
       end if;
 
-      while Link_Type (Node, Right) = Child loop
-         Node := Link (Node, Right);
+      while Link_Type (Node_Pointer, Right) = Child loop
+         Node_Pointer := Link (Node_Pointer, Right);
       end loop;
 
-      With_The_Element := Element_Of (The_Node => Node);
-      Replace_Element (Node, Swap_C);
+      With_The_Element := Element_Of (The_Node => Node_Pointer);
+      Replace_Element (Node_Pointer, Swap_C);
    end Swap_Greatest;
 
    procedure Swap_Least
      (Within_The_Tree  : in out T;
       With_The_Element : in out Element_T)
    is
-      Swap_C : constant Element_T := With_The_Element;
-      Node   : AVL_Node_A         := Within_The_Tree.Root;
+      Swap_C       : constant Element_T  := With_The_Element;
+      Node_Pointer : constant AVL_Node_A :=
+        Least_Node (Within_The_Tree);
    begin
-      while Link_Type (Node, Left) = Child loop
-         Node := Link (Node, Left);
-      end loop;
+      if Node_Pointer = null then
+         raise Key_Not_Found;
+      end if;
 
-      With_The_Element := Element_Of (The_Node => Node);
-      Replace_Element (Node, Swap_C);
+      With_The_Element := Element_Of (The_Node => Node_Pointer);
+      Replace_Element (Node_Pointer, Swap_C);
    end Swap_Least;
 
    procedure Swap_Predecessor
@@ -2933,48 +2819,32 @@ package body AVL_Trees is
       Of_The_Key       : in     Key_T;
       With_The_Element : in out Element_T)
    is
-      Swap_C : constant Element_T := With_The_Element;
-      Node   : AVL_Node_A         := Within_The_Tree.Root;
+      Swap_C       : constant Element_T := With_The_Element;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      if Node = null then
+      if Node_Pointer = null then
          raise Key_Not_Found;
+      else
+         case Link_Type (Node_Pointer, Left) is
+            when Child =>
+               Node_Pointer := Link (Node_Pointer, Left);
+
+               while Link_Type (Node_Pointer, Right) /= Thread loop
+                  Node_Pointer := Link (Node_Pointer, Right);
+               end loop;
+
+               With_The_Element :=
+                 Element_Of (The_Node => Node_Pointer);
+               Replace_Element (Node_Pointer, Swap_C);
+            when Thread =>
+               if Link (Node_Pointer, Left) /= null then
+                  Node_Pointer     := Link (Node_Pointer, Left);
+                  With_The_Element :=
+                    Element_Of (The_Node => Node_Pointer);
+                  Replace_Element (Node_Pointer, Swap_C);
+               end if;
+         end case;
       end if;
-
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
-         else
-            case Link_Type (Node, Left) is
-               when Child =>
-                  Node := Link (Node, Left);
-
-                  while Link_Type (Node, Right) /= Thread loop
-                     Node := Link (Node, Right);
-                  end loop;
-
-                  With_The_Element := Element_Of (The_Node => Node);
-                  Replace_Element (Node, Swap_C);
-               when Thread =>
-                  if Link (Node, Left) /= null then
-                     Node             := Link (Node, Left);
-                     With_The_Element := Element_Of (The_Node => Node);
-                     Replace_Element (Node, Swap_C);
-                  end if;
-            end case;
-
-            exit;
-         end if;
-      end loop;
    end Swap_Predecessor;
 
    procedure Swap_Successor
@@ -2982,44 +2852,36 @@ package body AVL_Trees is
       Of_The_Key       : in     Key_T;
       With_The_Element : in out Element_T)
    is
-      Swap_C : constant Element_T := With_The_Element;
-      Node   : AVL_Node_A         := Within_The_Tree.Root;
+      Swap_C       : constant Element_T := With_The_Element;
+      Node_Pointer : AVL_Node_A := Node (Within_The_Tree, Of_The_Key);
    begin
-      loop
-         if Is_Key_Less (Of_The_Key, Node) then
-            if Link_Type (Node, Left) = Thread then
-               raise Key_Not_Found;
-            end if;
+      if Node_Pointer = null then
+         raise Key_Not_Found;
+      else
+         Node_Pointer := Successor_Node (Node_Pointer);
 
-            Node := Link (Node, Left);
-         elsif Is_Node_Less (Node, Of_The_Key) then
-            if Link_Type (Node, Right) = Thread then
-               raise Key_Not_Found;
-            end if;
-
-            Node := Link (Node, Right);
+         if Node_Pointer = null then
+            raise Key_Not_Found;
          else
-            case Link_Type (Node, Right) is
-               when Child =>
-                  Node := Link (Node, Right);
-
-                  while Link_Type (Node, Left) /= Thread loop
-                     Node := Link (Node, Left);
-                  end loop;
-
-                  With_The_Element := Element_Of (The_Node => Node);
-                  Replace_Element (Node, Swap_C);
-               when Thread =>
-                  if Node.all.RL /= null then
-                     Node             := Link (Node, Right);
-                     With_The_Element := Element_Of (The_Node => Node);
-                     Replace_Element (Node, Swap_C);
-                  end if;
-            end case;
-
-            exit;
+            With_The_Element := Element_Of (The_Node => Node_Pointer);
+            Replace_Element (Node_Pointer, Swap_C);
          end if;
-      end loop;
+      end if;
    end Swap_Successor;
+
+   procedure Traverse_In_Order
+     (The_Tree : in T)
+   is
+      Node_Pointer : AVL_Node_A := Least_Node (The_Tree);
+      Continue     : Boolean    := False;
+   begin
+      while Node_Pointer /= null loop
+         Process
+           (Key_Of (Node_Pointer), Element_Of (Node_Pointer),
+            Continue);
+         exit when not Continue;
+         Node_Pointer := Successor_Node (Node_Pointer);
+      end loop;
+   end Traverse_In_Order;
 
 end AVL_Trees;
